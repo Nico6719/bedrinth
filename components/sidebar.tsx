@@ -1,13 +1,39 @@
+import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 
-// I'll assume standard div for simplicity unless I make a ScrollArea component
 interface SidebarProps {
   tags: string[];
   selectedTags: string[];
-  onToggleTag: (tag: string) => void;
+  currentParams: {
+    q?: string;
+    tags?: string;
+    sort?: string;
+    page?: string;
+  };
 }
 
-export function Sidebar({ tags, selectedTags, onToggleTag }: SidebarProps) {
+function buildTagUrl(
+  tag: string,
+  selectedTags: string[],
+  currentParams: SidebarProps["currentParams"],
+): string {
+  const isSelected = selectedTags.includes(tag);
+  const newTags = isSelected
+    ? selectedTags.filter((t) => t !== tag)
+    : [...selectedTags, tag];
+
+  const p = new URLSearchParams();
+  if (currentParams.q) p.set("q", currentParams.q);
+  if (newTags.length > 0) p.set("tags", newTags.join(","));
+  if (currentParams.sort && currentParams.sort !== "relevance")
+    p.set("sort", currentParams.sort);
+  // Reset to page 1 when changing tags
+
+  const qs = p.toString();
+  return qs ? `/?${qs}` : "/";
+}
+
+export function Sidebar({ tags, selectedTags, currentParams }: SidebarProps) {
   return (
     <aside className="w-full md:w-64 flex-shrink-0 space-y-6">
       <div>
@@ -21,14 +47,17 @@ export function Sidebar({ tags, selectedTags, onToggleTag }: SidebarProps) {
                 .map((tag) => {
                   const isSelected = selectedTags.includes(tag);
                   return (
-                    <Badge
+                    <Link
                       key={tag}
-                      variant={isSelected ? "default" : "outline"}
-                      className="cursor-pointer transition-all hover:scale-105 active:scale-95 whitespace-nowrap px-3 py-1"
-                      onClick={() => onToggleTag(tag)}
+                      href={buildTagUrl(tag, selectedTags, currentParams)}
                     >
-                      {tag}
-                    </Badge>
+                      <Badge
+                        variant={isSelected ? "default" : "outline"}
+                        className="cursor-pointer transition-all hover:scale-105 active:scale-95 whitespace-nowrap px-3 py-1"
+                      >
+                        {tag}
+                      </Badge>
+                    </Link>
                   );
                 })}
             </div>
@@ -40,14 +69,17 @@ export function Sidebar({ tags, selectedTags, onToggleTag }: SidebarProps) {
           {tags.map((tag) => {
             const isSelected = selectedTags.includes(tag);
             return (
-              <Badge
+              <Link
                 key={tag}
-                variant={isSelected ? "default" : "outline"}
-                className="cursor-pointer transition-all hover:scale-105 active:scale-95 whitespace-nowrap px-3 py-1"
-                onClick={() => onToggleTag(tag)}
+                href={buildTagUrl(tag, selectedTags, currentParams)}
               >
-                {tag}
-              </Badge>
+                <Badge
+                  variant={isSelected ? "default" : "outline"}
+                  className="cursor-pointer transition-all hover:scale-105 active:scale-95 whitespace-nowrap px-3 py-1"
+                >
+                  {tag}
+                </Badge>
+              </Link>
             );
           })}
         </div>

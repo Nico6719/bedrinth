@@ -16,7 +16,7 @@
 }
 .dark .markdown-alert-note {
   background-color: #0d1117;
-  /* GitHub dark dim style approximately */
+  color: #4493f8;
 }
 
 .markdown-alert-tip {
@@ -24,11 +24,19 @@
   background-color: #f6fff8;
   color: #1a7f37;
 }
+.dark .markdown-alert-tip {
+  background-color: #0d1117;
+  color: #3fb950;
+}
 
 .markdown-alert-important {
   border-color: #8250df;
   background-color: #fbf8ff;
   color: #8250df;
+}
+.dark .markdown-alert-important {
+  background-color: #0d1117;
+  color: #a371f7;
 }
 
 .markdown-alert-warning {
@@ -36,11 +44,19 @@
   background-color: #fff8c5;
   color: #4d2d00;
 }
+.dark .markdown-alert-warning {
+  background-color: #0d1117;
+  color: #d29922;
+}
 
 .markdown-alert-caution {
   border-color: #d1242f;
   background-color: #ffebe9;
   color: #cf222e;
+}
+.dark .markdown-alert-caution {
+  background-color: #0d1117;
+  color: #f85149;
 }
 
 .markdown-alert-title {
@@ -70,5 +86,13 @@
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-geist-sans), Arial, Helvetica, sans-serif;
+}
+
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
 }

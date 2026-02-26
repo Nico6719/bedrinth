@@ -1,4 +1,5 @@
 import Link from "next/link";
+import Image from "next/image";
 import { Search } from "@/components/search";
 import { Suspense } from "react";
 
@@ -8,8 +9,15 @@ export function Header() {
       <div className="container mx-auto px-4 h-16 flex items-center justify-between gap-4">
         <Link
           href="/"
-          className="font-bold text-xl tracking-tight hover:opacity-80 transition-opacity shrink-0"
+          className="inline-flex items-center gap-2 font-bold text-xl tracking-tight hover:opacity-80 transition-opacity shrink-0"
         >
+          <Image
+            src="/icon"
+            alt="Bedrinth icon"
+            width={22}
+            height={22}
+            className="rounded-md"
+          />
           bedrinth
         </Link>
         <div className="flex-1 max-w-md">

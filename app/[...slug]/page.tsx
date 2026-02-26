@@ -1,51 +1,40 @@
+import type { Metadata } from "next";
 import { notFound, redirect } from "next/navigation";
 import Link from "next/link";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { remarkAlert } from "remark-github-blockquote-alert";
 import { ArrowLeft, Star, Clock, Tag, Box, Github } from "lucide-react";
-import { PackageIndex } from "@/types";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Avatar } from "@/components/avatar";
-
-const INDEX_URL = "https://lipr.levimc.org/index.json";
-
-async function getPackages(): Promise<PackageIndex> {
-  const res = await fetch(INDEX_URL, { next: { revalidate: 3600 } });
-  if (!res.ok) throw new Error("Failed to fetch packages");
-  return res.json();
-}
+import { InstallCommands } from "@/components/install-commands";
+import {
+  fetchPackageIndex,
+  getPackageManifestUrl,
+  getReadmeUrl,
+  REVALIDATE_SECONDS,
+} from "@/lib/packages";
 
 async function getManifest(tooth: string, version: string) {
-  const httpsUrl = `https://lipr.levimc.org/${tooth}/@v/${version}/tooth.json`;
-  const httpUrl = `http://lipr.levimc.org/${tooth}/@v/${version}/tooth.json`;
+  const url = getPackageManifestUrl(tooth, version);
   try {
-    const httpsRes = await fetch(httpsUrl, { next: { revalidate: 3600 } });
-    if (httpsRes.ok) return httpsRes.json();
-
-    const httpRes = await fetch(httpUrl, { next: { revalidate: 3600 } });
-    if (!httpRes.ok) return null;
-    return httpRes.json();
+    const res = await fetch(url, { next: { revalidate: REVALIDATE_SECONDS } });
+    if (res.ok) return res.json();
+    return null;
   } catch {
     return null;
   }
 }
 
 async function getReadme(tooth: string, version: string) {
-  const parts = tooth.split("/");
-  if (parts[0] !== "github.com" || parts.length < 3) return null;
-
-  const repoPath = parts.slice(1).join("/");
-  const tag = `v${version}`;
-  const url = `https://raw.githubusercontent.com/${repoPath}/${tag}/README.md`;
+  const url = getReadmeUrl(tooth, version);
+  if (!url) return null;
 
   try {
-    const res = await fetch(url, { next: { revalidate: 3600 } });
-    if (!res.ok) {
-      return null;
-    }
+    const res = await fetch(url, { next: { revalidate: REVALIDATE_SECONDS } });
+    if (!res.ok) return null;
     return await res.text();
   } catch {
     return null;
@@ -56,7 +45,7 @@ function buildPackageUrl(tooth: string, version?: string) {
   return version ? `/${tooth}@${version}` : `/${tooth}`;
 }
 
-function resolvePackageByTooth(packageEntries: PackageIndex["packages"], tooth: string) {
+function resolvePackageByTooth(packageEntries: Record<string, import("@/types").RawPackageEntry>, tooth: string) {
   const exact = packageEntries[tooth];
   if (exact) {
     return { tooth, pkg: exact };
@@ -78,6 +67,37 @@ interface PageProps {
   params: Promise<{ slug: string[] }>;
 }
 
+export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
+  const resolvedParams = await params;
+  const slugPath = resolvedParams.slug
+    .map((s) => { try { return decodeURIComponent(s); } catch { return s; } })
+    .join("/");
+
+  const packageIndex = await fetchPackageIndex();
+  const packageEntries = packageIndex.packages;
+
+  // Try exact match
+  let pkg = packageEntries[slugPath];
+
+  // Try version-aware match (tooth@version)
+  if (!pkg) {
+    const atIndex = slugPath.lastIndexOf("@");
+    if (atIndex > 0) {
+      const possibleTooth = slugPath.slice(0, atIndex);
+      pkg = packageEntries[possibleTooth];
+    }
+  }
+
+  if (!pkg) {
+    return { title: "Not Found" };
+  }
+
+  return {
+    title: pkg.info.name,
+    description: pkg.info.description,
+  };
+}
+
 export default async function PackageDetailPage({ params }: Readonly<PageProps>) {
   const resolvedParams = await params;
   const slugParts = resolvedParams.slug.map((segment) => {
@@ -89,7 +109,7 @@ export default async function PackageDetailPage({ params }: Readonly<PageProps>)
   });
   const slugPath = slugParts.join("/");
 
-  const packageIndex = await getPackages();
+  const packageIndex = await fetchPackageIndex();
   const packageEntries = packageIndex.packages;
 
   let tooth = slugPath;
@@ -147,6 +167,7 @@ export default async function PackageDetailPage({ params }: Readonly<PageProps>)
 
   const manifest = await getManifest(tooth, version);
   const readme = await getReadme(tooth, version);
+  const variants = pkg.versions[version] ?? [""];
 
   const info = manifest?.info || pkg.info;
 
@@ -154,7 +175,7 @@ export default async function PackageDetailPage({ params }: Readonly<PageProps>)
     <div className="container mx-auto py-8 px-4 max-w-6xl">
       <Link
         href="/"
-        className="inline-flex items-center text-sm text-gray-500 hover:text-gray-900 mb-6 transition-colors"
+        className="inline-flex items-center text-sm text-gray-500 hover:text-gray-900 dark:hover:text-gray-100 mb-6 transition-colors"
       >
         <ArrowLeft className="mr-2 h-4 w-4" />
         Back to packages
@@ -181,13 +202,15 @@ export default async function PackageDetailPage({ params }: Readonly<PageProps>)
             </div>
           </div>
 
+          <InstallCommands tooth={tooth} version={version} variants={variants} />
+
           <Card>
             <CardHeader className="border-b">
               <CardTitle>README</CardTitle>
             </CardHeader>
             <CardContent className="p-6 md:p-8">
               {readme ? (
-                <div className="prose dark:prose-invert max-w-none prose-headings:font-bold prose-a:text-blue-600 prose-pre:bg-gray-100 dark:prose-pre:bg-gray-800 prose-table:border-collapse prose-th:border prose-td:border prose-th:p-2 prose-td:p-2 prose-img:inline-block prose-img:my-1 prose-img:mr-1 prose-p:my-4">
+                <div className="prose dark:prose-invert max-w-none prose-headings:font-bold prose-a:text-blue-600 prose-pre:bg-gray-100 prose-pre:text-gray-800 dark:prose-pre:bg-gray-900 dark:prose-pre:text-gray-200 prose-code:bg-gray-100 prose-code:text-gray-800 prose-code:px-1.5 prose-code:py-0.5 prose-code:rounded prose-code:text-sm dark:prose-code:bg-gray-900 dark:prose-code:text-gray-200 prose-table:border-collapse prose-th:border prose-td:border prose-th:p-2 prose-td:p-2 prose-img:inline-block prose-img:my-1 prose-img:mr-1 prose-p:my-4">
                   <ReactMarkdown remarkPlugins={[remarkGfm, remarkAlert]}>
                     {readme}
                   </ReactMarkdown>
@@ -235,12 +258,12 @@ export default async function PackageDetailPage({ params }: Readonly<PageProps>)
                   <Tag className="w-4 h-4" /> Tags
                 </div>
                 <div className="flex flex-wrap gap-2">
-                  {pkg.info.tags.map((tag) => (
+                  {(pkg.info.tags ?? []).map((tag: string) => (
                     <Badge key={tag} variant="secondary">
                       {tag}
                     </Badge>
                   ))}
-                  {pkg.info.tags.length === 0 && (
+                  {(!pkg.info.tags || pkg.info.tags.length === 0) && (
                     <span className="text-sm text-gray-400">No tags</span>
                   )}
                 </div>

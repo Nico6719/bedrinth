@@ -25,13 +25,3 @@ export interface PackageIndex {
   format_uuid: string;
   packages: Record<string, RawPackageEntry>;
 }
-
-export function normalizePackageIndex(index: PackageIndex): Package[] {
-  return Object.entries(index.packages).map(([tooth, pkg]) => ({
-    tooth,
-    info: pkg.info,
-    stars: pkg.stars,
-    updated: pkg.updated_at,
-    versions: Object.keys(pkg.versions),
-  }));
-}

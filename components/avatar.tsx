@@ -60,8 +60,6 @@ interface AvatarProps {
   src?: string;
   alt: string;
   name: string;
-  // tooth is no longer needed for github fallback, but we keep the prop signature compatible
-  tooth?: string;
   className?: string;
 }
 
@@ -94,9 +92,11 @@ export function Avatar({ src, alt, name, className }: AvatarProps) {
 
   return (
     <div
+      role="img"
+      aria-label={alt}
       className={`border flex items-center justify-center shrink-0 ${colorClass} ${className}`}
     >
-      <Icon className="w-1/2 h-1/2" />
+      <Icon className="w-1/2 h-1/2" aria-hidden="true" />
     </div>
   );
 }

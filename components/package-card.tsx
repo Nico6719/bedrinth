@@ -45,18 +45,15 @@ export function PackageCard({ pkg }: Readonly<PackageCardProps>) {
         </div>
       </CardHeader>
       <CardContent className="flex-1 flex flex-col justify-end">
-        <div className="flex flex-wrap gap-2">
-          {pkg.info.tags.slice(0, 5).map((tag) => (
+        <div className="flex flex-wrap gap-1.5 max-h-[3.25rem] overflow-hidden content-start">
+          {pkg.info.tags.map((tag) => (
             <Badge key={tag} variant="secondary">
               {tag}
             </Badge>
           ))}
-          {pkg.info.tags.length > 5 && (
-            <Badge variant="outline">+{pkg.info.tags.length - 5}</Badge>
-          )}
         </div>
       </CardContent>
-      <CardFooter className="flex justify-between text-sm text-muted-foreground border-t pt-4 mt-auto">
+      <CardFooter className="flex justify-between text-sm text-gray-500 dark:text-gray-400 border-t pt-4 mt-auto">
         <div className="flex items-center gap-4">
           <div className="flex items-center gap-1">
             <Star className="w-4 h-4 text-yellow-500 fill-yellow-500" />
