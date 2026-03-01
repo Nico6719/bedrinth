@@ -25,9 +25,13 @@ export function normalizePackageIndex(index: PackageIndex): Package[] {
       ...pkg.info,
       tags: Array.isArray(pkg.info.tags) ? pkg.info.tags : [],
     },
-    stars: pkg.stars,
+    stars: pkg.stargazer_count,
     updated: pkg.updated_at,
-    versions: Object.keys(pkg.versions),
+    versions: Array.from(
+      new Set(
+        Object.values(pkg.variants).flatMap((variant) => variant.versions),
+      ),
+    ),
   }));
 }
 
@@ -177,13 +181,10 @@ export function extractTags(packages: Package[]): string[] {
 // ---------------------------------------------------------------------------
 
 export function getPackageManifestUrl(tooth: string, version: string): string {
-  return `${PACKAGE_REGISTRY_URL}/${tooth}/@v/${version}/tooth.json`;
+  return `${PACKAGE_REGISTRY_URL}/github.com/${tooth}@${version}/tooth.json`;
 }
 
 export function getReadmeUrl(tooth: string, version: string): string | null {
-  const parts = tooth.split("/");
-  if (parts[0] !== "github.com" || parts.length < 3) return null;
-  const repoPath = parts.slice(1).join("/");
   const tag = `v${version}`;
-  return `https://raw.githubusercontent.com/${repoPath}/${tag}/README.md`;
+  return `https://raw.githubusercontent.com/${tooth}/${tag}/README.md`;
 }

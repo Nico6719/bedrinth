@@ -5,7 +5,7 @@ import { CopyButton } from "@/components/copy-button";
 interface InstallCommandsProps {
   tooth: string;
   version: string;
-  variants: string[];
+  variant: string;
 }
 
 function buildInstallCommand(
@@ -22,8 +22,11 @@ function buildInstallCommand(
 export function InstallCommands({
   tooth,
   version,
-  variants,
+  variant,
 }: InstallCommandsProps) {
+  const command = buildInstallCommand(tooth, variant, version);
+  const label = variant === "" ? "(default)" : variant;
+
   return (
     <Card>
       <CardHeader>
@@ -33,25 +36,17 @@ export function InstallCommands({
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-3">
-        {variants.map((variant) => {
-          const command = buildInstallCommand(tooth, variant, version);
-          const label = variant === "" ? "default" : variant;
-          return (
-            <div key={variant}>
-              {variants.length > 1 && (
-                <div className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">
-                  {label}
-                </div>
-              )}
-              <div className="flex items-center gap-2 rounded-md bg-gray-100 dark:bg-gray-900 border border-gray-200 dark:border-gray-800 px-3 py-2">
-                <code className="flex-1 text-sm font-mono text-gray-800 dark:text-gray-200 select-all overflow-x-auto whitespace-nowrap">
-                  {command}
-                </code>
-                <CopyButton text={command} className="shrink-0" />
-              </div>
-            </div>
-          );
-        })}
+        <div>
+          <div className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">
+            {label}
+          </div>
+          <div className="flex items-center gap-2 rounded-md bg-gray-100 dark:bg-gray-900 border border-gray-200 dark:border-gray-800 px-3 py-2">
+            <code className="flex-1 text-sm font-mono text-gray-800 dark:text-gray-200 select-all overflow-x-auto whitespace-nowrap">
+              {command}
+            </code>
+            <CopyButton text={command} className="shrink-0" />
+          </div>
+        </div>
       </CardContent>
     </Card>
   );

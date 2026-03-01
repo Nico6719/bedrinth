@@ -41,8 +41,16 @@ async function getReadme(tooth: string, version: string) {
   }
 }
 
-function buildPackageUrl(tooth: string, version?: string) {
-  return version ? `/${tooth}@${version}` : `/${tooth}`;
+function buildPackageUrl(tooth: string, version?: string, variant?: string) {
+  const query = new URLSearchParams();
+  if (variant !== undefined) {
+    query.set("variant", variant);
+  }
+  if (version) {
+    query.set("version", version);
+  }
+  const queryString = query.toString();
+  return queryString ? `/packages/${tooth}?${queryString}` : `/packages/${tooth}`;
 }
 
 function resolvePackageByTooth(packageEntries: Record<string, import("@/types").RawPackageEntry>, tooth: string) {
@@ -63,44 +71,60 @@ function resolvePackageByTooth(packageEntries: Record<string, import("@/types").
   return { tooth: matchedTooth, pkg: packageEntries[matchedTooth] };
 }
 
+function getSortedVariants(pkg: import("@/types").RawPackageEntry): string[] {
+  return Object.keys(pkg.variants).sort((a, b) => {
+    if (a === "") return -1;
+    if (b === "") return 1;
+    return a.localeCompare(b);
+  });
+}
+
+function getVersionsForVariant(pkg: import("@/types").RawPackageEntry, variant: string): string[] {
+  const variantMeta = pkg.variants[variant];
+  if (!variantMeta) return [];
+  return Array.from(new Set(variantMeta.versions));
+}
+
 interface PageProps {
-  params: Promise<{ slug: string[] }>;
+  params: Promise<{ tooth: string[] }>;
+  searchParams: Promise<{
+    variant?: string;
+    version?: string;
+  }>;
 }
 
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
   const resolvedParams = await params;
-  const slugPath = resolvedParams.slug
-    .map((s) => { try { return decodeURIComponent(s); } catch { return s; } })
+  const slugPath = resolvedParams.tooth
+    .map((s) => {
+      try {
+        return decodeURIComponent(s);
+      } catch {
+        return s;
+      }
+    })
     .join("/");
 
   const packageIndex = await fetchPackageIndex();
-  const packageEntries = packageIndex.packages;
+  const resolved = resolvePackageByTooth(packageIndex.packages, slugPath);
 
-  // Try exact match
-  let pkg = packageEntries[slugPath];
-
-  // Try version-aware match (tooth@version)
-  if (!pkg) {
-    const atIndex = slugPath.lastIndexOf("@");
-    if (atIndex > 0) {
-      const possibleTooth = slugPath.slice(0, atIndex);
-      pkg = packageEntries[possibleTooth];
-    }
-  }
-
-  if (!pkg) {
+  if (!resolved) {
     return { title: "Not Found" };
   }
 
   return {
-    title: pkg.info.name,
-    description: pkg.info.description,
+    title: resolved.pkg.info.name,
+    description: resolved.pkg.info.description,
   };
 }
 
-export default async function PackageDetailPage({ params }: Readonly<PageProps>) {
+export default async function PackageDetailPage({
+  params,
+  searchParams,
+}: Readonly<PageProps>) {
   const resolvedParams = await params;
-  const slugParts = resolvedParams.slug.map((segment) => {
+  const resolvedSearchParams = await searchParams;
+  const slugParts = resolvedParams.tooth.map((segment) => {
     try {
       return decodeURIComponent(segment);
     } catch {
@@ -110,65 +134,48 @@ export default async function PackageDetailPage({ params }: Readonly<PageProps>)
   const slugPath = slugParts.join("/");
 
   const packageIndex = await fetchPackageIndex();
-  const packageEntries = packageIndex.packages;
+  const resolved = resolvePackageByTooth(packageIndex.packages, slugPath);
 
-  let tooth = slugPath;
-  let pkg = resolvePackageByTooth(packageEntries, tooth)?.pkg;
-  let version: string | undefined;
-  let versions = pkg ? Object.keys(pkg.versions) : [];
-
-  if (!pkg) {
-    const atIndex = slugPath.lastIndexOf("@");
-
-    if (atIndex > 0) {
-      const possibleTooth = slugPath.slice(0, atIndex);
-      const possibleVersion = slugPath.slice(atIndex + 1);
-      const resolved = resolvePackageByTooth(packageEntries, possibleTooth);
-
-      if (resolved && possibleVersion) {
-        const foundVersions = Object.keys(resolved.pkg.versions);
-        if (foundVersions.includes(possibleVersion)) {
-          tooth = resolved.tooth;
-          pkg = resolved.pkg;
-          version = possibleVersion;
-          versions = foundVersions;
-        }
-      }
-    }
-  }
-
-  if (!pkg && slugParts.length > 1) {
-    const possibleVersion = slugParts.at(-1);
-    const possibleTooth = slugParts.slice(0, -1).join("/");
-
-    const resolved = resolvePackageByTooth(packageEntries, possibleTooth);
-    if (resolved && possibleVersion) {
-      const foundVersions = Object.keys(resolved.pkg.versions);
-      if (foundVersions.includes(possibleVersion)) {
-        tooth = resolved.tooth;
-        pkg = resolved.pkg;
-        version = possibleVersion;
-        versions = foundVersions;
-      }
-    }
-  }
-
-  if (!pkg) {
+  if (!resolved) {
     notFound();
   }
 
-  if (!version) {
-    const latest = versions.at(-1);
-    if (!latest) {
-      notFound();
-    }
-    redirect(buildPackageUrl(tooth, latest));
+  const tooth = resolved.tooth;
+  const pkg = resolved.pkg;
+  const variants = getSortedVariants(pkg);
+  if (variants.length === 0) {
+    notFound();
   }
 
-  const manifest = await getManifest(tooth, version);
-  const readme = await getReadme(tooth, version);
-  const variants = pkg.versions[version] ?? [""];
+  const requestedVariant = resolvedSearchParams.variant;
+  const selectedVariant = requestedVariant && variants.includes(requestedVariant)
+    ? requestedVariant
+    : variants[0];
 
+  const versionCandidates = getVersionsForVariant(pkg, selectedVariant);
+  if (versionCandidates.length === 0) {
+    notFound();
+  }
+
+  const requestedVersion = resolvedSearchParams.version;
+  const selectedVersion = requestedVersion && versionCandidates.includes(requestedVersion)
+    ? requestedVersion
+    : versionCandidates.at(-1);
+
+  if (!selectedVersion) {
+    notFound();
+  }
+
+  const canonicalVariant = selectedVariant;
+  if (
+    resolvedSearchParams.variant !== canonicalVariant
+    || resolvedSearchParams.version !== selectedVersion
+  ) {
+    redirect(buildPackageUrl(tooth, selectedVersion, selectedVariant));
+  }
+
+  const manifest = await getManifest(tooth, selectedVersion);
+  const readme = await getReadme(tooth, selectedVersion);
   const info = manifest?.info || pkg.info;
 
   return (
@@ -202,7 +209,7 @@ export default async function PackageDetailPage({ params }: Readonly<PageProps>)
             </div>
           </div>
 
-          <InstallCommands tooth={tooth} version={version} variants={variants} />
+          <InstallCommands tooth={tooth} version={selectedVersion} variant={selectedVariant} />
 
           <Card>
             <CardHeader className="border-b">
@@ -217,7 +224,7 @@ export default async function PackageDetailPage({ params }: Readonly<PageProps>)
                 </div>
               ) : (
                 <div className="text-center py-12 text-gray-500">
-                  <p>No README available for version {version}</p>
+                  <p>No README available for version {selectedVersion}</p>
                 </div>
               )}
             </CardContent>
@@ -234,14 +241,14 @@ export default async function PackageDetailPage({ params }: Readonly<PageProps>)
                 <span className="text-sm text-gray-500 flex items-center gap-2">
                   <Box className="w-4 h-4" /> Version
                 </span>
-                <span className="font-medium font-mono">{version}</span>
+                <span className="font-medium font-mono">{selectedVersion}</span>
               </div>
 
               <div className="flex justify-between items-center py-2 border-b">
                 <span className="text-sm text-gray-500 flex items-center gap-2">
                   <Star className="w-4 h-4" /> Stars
                 </span>
-                <span className="font-medium">{pkg.stars}</span>
+                <span className="font-medium">{pkg.stargazer_count}</span>
               </div>
 
               <div className="flex justify-between items-center py-2 border-b">
@@ -272,7 +279,7 @@ export default async function PackageDetailPage({ params }: Readonly<PageProps>)
               <div className="pt-4">
                 <Button className="w-full" asChild>
                   <a
-                    href={`https://${tooth}`}
+                    href={`https://github.com/${tooth}`}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="flex items-center justify-center gap-2"
@@ -287,23 +294,53 @@ export default async function PackageDetailPage({ params }: Readonly<PageProps>)
 
           <Card>
             <CardHeader>
+              <CardTitle className="text-lg">Variants</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="flex flex-wrap gap-2">
+                {variants.map((variant) => {
+                  const variantVersions = getVersionsForVariant(pkg, variant);
+                  const variantLatest = variantVersions.at(-1);
+                  if (!variantLatest) return null;
+                  const targetVersion = variantVersions.includes(selectedVersion)
+                    ? selectedVersion
+                    : variantLatest;
+                  const isCurrent = variant === selectedVariant;
+                  const variantUrl = buildPackageUrl(tooth, targetVersion, variant);
+                  return (
+                    <Link key={variant} href={variantUrl}>
+                      <Badge
+                        variant={isCurrent ? "default" : "outline"}
+                        className={`font-mono cursor-pointer transition-colors ${isCurrent ? "" : "hover:bg-gray-100 dark:hover:bg-gray-800"}`}
+                      >
+                        {variant === "" ? "(default)" : variant}
+                      </Badge>
+                    </Link>
+                  );
+                })}
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
               <CardTitle className="text-lg">Versions</CardTitle>
             </CardHeader>
             <CardContent>
               <div className="flex flex-wrap gap-2 max-h-96 overflow-y-auto pr-2">
-                {versions
+                {versionCandidates
                   .slice()
                   .reverse()
-                  .map((v) => {
-                    const isCurrent = v === version;
-                    const versionUrl = buildPackageUrl(tooth, v);
+                  .map((version) => {
+                    const isCurrent = version === selectedVersion;
+                    const versionUrl = buildPackageUrl(tooth, version, selectedVariant);
                     return (
-                      <Link key={v} href={versionUrl}>
+                      <Link key={version} href={versionUrl}>
                         <Badge
                           variant={isCurrent ? "default" : "outline"}
                           className={`font-mono cursor-pointer transition-colors ${isCurrent ? "" : "hover:bg-gray-100 dark:hover:bg-gray-800"}`}
                         >
-                          {v}
+                          {version}
                         </Badge>
                       </Link>
                     );

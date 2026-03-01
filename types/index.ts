@@ -8,8 +8,8 @@ export interface PackageInfo {
 export interface RawPackageEntry {
   info: PackageInfo;
   updated_at: string;
-  stars: number;
-  versions: Record<string, string[]>;
+  stargazer_count: number;
+  variants: Record<string, { versions: string[] }>;
 }
 
 export interface Package {
