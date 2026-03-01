@@ -1,5 +1,4 @@
 import Link from "next/link";
-import Image from "next/image";
 import { Search } from "@/components/search";
 import { Suspense } from "react";
 
@@ -11,7 +10,7 @@ export function Header() {
           href="/"
           className="inline-flex items-center gap-2 font-bold text-xl tracking-tight hover:opacity-80 transition-opacity shrink-0"
         >
-          <Image
+          <img
             src="/icon"
             alt="Bedrinth icon"
             width={22}
