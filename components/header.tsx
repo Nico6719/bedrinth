@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { Search } from "@/components/search";
 import { Suspense } from "react";
+import Image from "next/image";
 
 export function Header() {
   return (
@@ -10,7 +11,7 @@ export function Header() {
           href="/"
           className="inline-flex items-center gap-2 font-bold text-xl tracking-tight hover:opacity-80 transition-opacity shrink-0"
         >
-          <img
+          <Image
             src="/icon"
             alt="Bedrinth icon"
             width={22}
