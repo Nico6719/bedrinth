@@ -1,9 +1,9 @@
 {
   "$schema": "./node_modules/wrangler/config-schema.json",
   "main": ".open-next/worker.js",
-  "name": "my-app",
+  "name": "bedrinth",
   // Set this to today's date
-  "compatibility_date": "2026-02-28",
+  "compatibility_date": "2026-03-02",
   "compatibility_flags": [
     "nodejs_compat"
   ],
