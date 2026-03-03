@@ -277,7 +277,7 @@ export default async function PackageDetailPage({
               <div className="pt-4">
                 <Button className="w-full" asChild>
                   <a
-                    href={`https://github.com/${tooth}`}
+                    href={`https://${tooth}`}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="flex items-center justify-center gap-2"
